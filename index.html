@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TiroTalk Live - 회의록 기반 실시간 영어 회의 시뮬레이터</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
+    }
+    .orb-glow {
+      filter: drop-shadow(0 0 45px rgba(59, 130, 246, 0.45)) drop-shadow(0 0 80px rgba(168, 85, 247, 0.3));
+    }
+    .glass-card {
+      background: rgba(18, 24, 38, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-subtle {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    /* Pulse animations */
+    @keyframes subtlePulse {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+    .animate-subtle-pulse {
+      animation: subtlePulse 3s ease-in-out infinite;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen antialiased flex flex-col selection:bg-blue-500 selection:text-white">
+
+  <!-- TOP NAVIGATION -->
+  <header class="border-b border-slate-800/80 bg-[#0b0f19]/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">TiroTalk Live</span>
+            <span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Gemini Live Mode</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-none">내 회의록 기반 실시간 영어 회의 시뮬레이터</p>
+        </div>
+      </div>
+
+      <!-- Navigation Steps Indicator -->
+      <div class="hidden md:flex items-center gap-1 glass-card px-3 py-1.5 rounded-full text-xs font-medium">
+        <button id="nav-step1-btn" onclick="goToStep(1)" class="px-3 py-1 rounded-full text-blue-400 bg-blue-500/10 transition">1. 회의록 주입</button>
+        <span class="text-slate-600">›</span>
+        <button id="nav-step2-btn" onclick="goToStep(2)" class="px-3 py-1 rounded-full text-slate-400 hover:text-slate-200 transition">2. 실시간 음성 회의</button>
+        <span class="text-slate-600">›</span>
+        <button id="nav-step3-btn" onclick="goToStep(3)" class="px-3 py-1 rounded-full text-slate-400 hover:text-slate-200 transition">3. 코칭 & 피드백</button>
+      </div>
+
+      <!-- Settings & API Key -->
+      <div class="flex items-center gap-2">
+        <button onclick="openApiKeyModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium glass-card hover:bg-slate-800 transition text-slate-300 border border-slate-700/60">
+          <span id="apiKeyStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="apiKeyStatusText">무료 체험 모드</span>
+          <svg class="w-3.5 h-3.5 text-slate-400 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-center">
+
+    <!-- ========================================== -->
+    <!-- STEP 1: 회의록 주입 및 세팅 화면 -->
+    <!-- ========================================== -->
+    <section id="step1-container" class="space-y-6">
+      <div class="text-center max-w-3xl mx-auto space-y-2 mb-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+          <span>✨ Tiro 회의록을 실전 영어 시뮬레이션으로 전환</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+          내 실제 회의록으로 <span class="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">실시간 영어 회의</span>를 연습하세요
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base">
+          교재 속 뻔한 대화가 아닌, 내가 직접 했던 업무 안건과 전문 용어로 글로벌 파트너와 실시간 음성으로 대화합니다.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: Meeting Notes Input -->
+        <div class="lg:col-span-7 glass-card rounded-2xl p-6 flex flex-col space-y-4">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Tiro 회의록 본문 또는 요약본 입력
+            </label>
+            <span class="text-xs text-slate-400">한국어 / 영어 모두 지원</span>
+          </div>
+
+          <!-- Quick Presets -->
+          <div class="space-y-1.5">
+            <span class="text-xs text-slate-400 font-medium">원클릭 실무 샘플 회의록 불러오기:</span>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="loadSamplePreset(0)" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition flex items-center gap-1.5">
+                <span>🚀 기능 릴리즈 연기 협의</span>
+              </button>
+              <button onclick="loadSamplePreset(1)" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition flex items-center gap-1.5">
+                <span>🤝 글로벌 파트너사 API 제휴</span>
+              </button>
+              <button onclick="loadSamplePreset(2)" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition flex items-center gap-1.5">
+                <span>📊 Q3 실적 & AI 도입 회의</span>
+              </button>
+            </div>
+          </div>
+
+          <textarea id="meetingNotesInput" rows="11" placeholder="티로(Tiro)에서 복사한 회의록 텍스트나 요약본을 이곳에 붙여넣으세요...&#10;&#10;예시:&#10;[회의 안건]: 글로벌 결제 시스템 PG사 연동 이슈 및 출시 일정 논의&#10;[결정 사항]: 3분기 출시 전 보안 감사 리스크로 인해 2주 연기 결정&#10;[할 일]: Ryan이 본사 결제팀과 싱크업 미팅 진행..." class="w-full rounded-xl bg-slate-900/90 border border-slate-700/80 text-sm text-slate-200 p-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition leading-relaxed"></textarea>
+
+          <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
+            <span>💡 팁: 화자 분리된 스크립트나 AI 요약본 무엇이든 자유롭게 넣을 수 있습니다.</span>
+            <span id="charCount" class="font-mono">0자</span>
+          </div>
+        </div>
+
+        <!-- Right: Roleplay Settings -->
+        <div class="lg:col-span-5 space-y-5">
+          <!-- Persona Selection -->
+          <div class="glass-card rounded-2xl p-6 space-y-4">
+            <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              가상 회의 상대방 (AI Persona)
+            </h3>
+
+            <div class="space-y-2.5">
+              <!-- Persona 1 -->
+              <label class="persona-option flex items-start gap-3 p-3 rounded-xl border border-blue-500/50 bg-blue-500/10 cursor-pointer transition">
+                <input type="radio" name="persona" value="alex" checked class="mt-1 accent-blue-500">
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-sm text-white">Alex Chen</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-medium">미국 본사 VP</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-0.5">논리적이고 직설적이며 기술 부채와 마감 일정에 엄격함.</p>
+                </div>
+              </label>
+
+              <!-- Persona 2 -->
+              <label class="persona-option flex items-start gap-3 p-3 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-slate-800/70 cursor-pointer transition">
+                <input type="radio" name="persona" value="sarah" class="mt-1 accent-blue-500">
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-sm text-white">Sarah Jenkins</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium">글로벌 Product Lead</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-0.5">친절하지만 비즈니스 임팩트와 고객 지표를 날카롭게 질문함.</p>
+                </div>
+              </label>
+
+              <!-- Persona 3 -->
+              <label class="persona-option flex items-start gap-3 p-3 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-slate-800/70 cursor-pointer transition">
+                <input type="radio" name="persona" value="david" class="mt-1 accent-blue-500">
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-sm text-white">David Miller</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium">해외 클라이언트 / 바이어</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-0.5">비용, SLA 계약 조건, 데이터 보안 규정 준수를 철저히 요구함.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- My Role & Difficulty -->
+          <div class="glass-card rounded-2xl p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs font-semibold text-slate-300 block mb-1.5">내 직무 / 역할</label>
+                <input id="myRoleInput" type="text" value="Product Manager / Tech Lead" class="w-full text-xs rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-200 outline-none focus:border-blue-500 transition">
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-slate-300 block mb-1.5">난이도</label>
+                <select id="meetingDifficulty" class="w-full text-xs rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-200 outline-none focus:border-blue-500 transition">
+                  <option value="intermediate">실전 비즈니스 (중급)</option>
+                  <option value="hard">날카로운 압박 면담 (고급)</option>
+                  <option value="easy">부드러운 대화 (초급)</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="startMeetingSession()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-lg shadow-indigo-600/30 transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+              <svg class="w-5 h-5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+              </svg>
+              <span>실시간 영어 회의 시작하기</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- STEP 2: 실시간 음성 회의 룸 (Gemini Live Mode) -->
+    <!-- ========================================== -->
+    <section id="step2-container" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+      
+      <!-- Meeting Header Card -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div id="activePersonaAvatar" class="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+            AC
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="activePersonaName" class="font-bold text-base text-white">Alex Chen</h2>
+              <span id="activePersonaRole" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-medium">미국 본사 VP</span>
+            </div>
+            <p id="activeMeetingTopic" class="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">기능 릴리즈 연기 및 보안 이슈 협의</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- Timer -->
+          <div class="glass-card-subtle px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-mono text-slate-300">
+            <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+            <span id="meetingTimer">00:00</span>
+          </div>
+
+          <!-- End Meeting Button -->
+          <button onclick="finishMeeting()" class="px-3.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-bold transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span>회의 종료 & 리포트</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Central Gemini Live Visualizer Area -->
+      <div class="glass-card rounded-3xl p-8 sm:p-12 flex flex-col items-center justify-center relative overflow-hidden min-h-[380px]">
+        <!-- Background Ambient Glow -->
+        <div class="absolute w-72 h-72 rounded-full bg-blue-600/15 blur-3xl -top-10 -left-10 pointer-events-none"></div>
+        <div class="absolute w-72 h-72 rounded-full bg-purple-600/15 blur-3xl -bottom-10 -right-10 pointer-events-none"></div>
+
+        <!-- Canvas Orb Visualizer -->
+        <div class="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center my-4">
+          <canvas id="orbCanvas" width="240" height="240" class="orb-glow"></canvas>
+          <div id="aiStateIcon" class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+            <span id="aiStateLabel" class="text-xs font-bold uppercase tracking-wider text-blue-300 mt-2 bg-slate-900/60 px-2.5 py-1 rounded-full border border-blue-500/20 backdrop-blur-sm">
+              Listening...
+            </span>
+          </div>
+        </div>
+
+        <!-- Realtime Subtitles / Live Transcript Preview -->
+        <div class="w-full max-w-xl text-center space-y-2 mt-4 z-10">
+          <div id="liveTranscriptBox" class="min-h-[52px] flex items-center justify-center px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-800 text-sm text-slate-200">
+            <span id="liveTranscriptText" class="italic text-slate-400">마이크 버튼을 누르고 말씀하세요. 영어로 자유롭게 회의를 시작할 수 있습니다.</span>
+          </div>
+
+          <div class="flex items-center justify-center gap-4 text-[11px] text-slate-400">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" id="toggleSubtitle" checked class="accent-blue-500 rounded">
+              <span>실시간 자막 표시</span>
+            </label>
+            <span class="text-slate-600">•</span>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" id="toggleVoicePlayback" checked class="accent-blue-500 rounded">
+              <span>AI 음성 출력 (TTS)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Controls: Mic & Lifebuoy / Hint -->
+        <div class="flex items-center gap-4 mt-8 z-10">
+          <!-- Hint / What should I say? -->
+          <button onclick="requestHint()" class="p-3.5 rounded-full glass-card hover:bg-slate-800 text-amber-300 border border-amber-500/30 transition shadow-lg group relative" title="말문이 막혔을 때 누르세요!">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <span class="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-amber-300 text-[10px] px-2 py-0.5 rounded shadow pointer-events-none opacity-0 group-hover:opacity-100 transition whitespace-nowrap border border-amber-500/30">
+              💡 추천 표현 힌트
+            </span>
+          </button>
+
+          <!-- Main Mic Toggle Button (Gemini Live Style) -->
+          <button id="micToggleButton" onclick="toggleMic()" class="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-xl shadow-blue-600/40 transition transform active:scale-95 border-2 border-white/20">
+            <svg id="micIcon" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+            </svg>
+          </button>
+
+          <!-- Interrupt / Barge-in Button -->
+          <button onclick="interruptAi()" class="p-3.5 rounded-full glass-card hover:bg-slate-800 text-slate-300 border border-slate-700 transition shadow-lg group relative" title="AI 발언 끊고 끼어들기">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-slate-300 text-[10px] px-2 py-0.5 rounded shadow pointer-events-none opacity-0 group-hover:opacity-100 transition whitespace-nowrap border border-slate-700">
+              ✋ 말 끊고 끼어들기
+            </span>
+          </button>
+        </div>
+
+        <!-- Hint Popup Card -->
+        <div id="hintCard" class="hidden mt-6 w-full max-w-lg glass-card p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2 text-left z-20">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <span>💡 이 타이밍에 쓰기 좋은 비즈니스 표현:</span>
+            </span>
+            <button onclick="closeHint()" class="text-slate-400 hover:text-white text-xs">✕</button>
+          </div>
+          <div id="hintSuggestions" class="space-y-1.5 text-xs text-slate-200">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsible Live Meeting Log -->
+      <div class="glass-card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between cursor-pointer" onclick="toggleLogPanel()">
+          <h3 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span>실시간 회의 대화 기록 (<span id="chatLogCount">0</span>턴)</span>
+          </h3>
+          <span id="logToggleIcon" class="text-xs text-slate-400">펼치기 ▼</span>
+        </div>
+        <div id="chatLogPanel" class="hidden max-h-56 overflow-y-auto space-y-3 pr-2 pt-2 border-t border-slate-800">
+          <div id="chatLogList" class="space-y-3 text-xs">
+            <!-- Chat bubbles injected here -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- STEP 3: 회의 종료 후 코칭 & 피드백 리포트 -->
+    <!-- ========================================== -->
+    <section id="step3-container" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+      
+      <!-- Summary Banner -->
+      <div class="glass-card rounded-2xl p-6 bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/40 border border-blue-500/20 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-semibold text-blue-400 tracking-wider uppercase">Meeting Performance Debrief</span>
+          <h2 class="text-2xl font-black text-white mt-0.5">회의 결과 및 비즈니스 영어 분석 리포트</h2>
+          <p id="debriefSubtitle" class="text-xs text-slate-300 mt-1">총 대화 5턴 | 회의 시간: 03:24</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="restartMeeting()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>새 회의 시뮬레이션</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Scorecards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="glass-card rounded-xl p-4 text-center">
+          <span class="text-[11px] text-slate-400 font-medium">유창성 (Fluency)</span>
+          <div id="scoreFluency" class="text-2xl font-black text-blue-400 mt-1">88<span class="text-xs text-slate-400 font-normal">/100</span></div>
+          <span class="text-[10px] text-emerald-400">자연스러운 턴테이킹</span>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <span class="text-[11px] text-slate-400 font-medium">비즈니스 전문도</span>
+          <div id="scoreTone" class="text-2xl font-black text-indigo-400 mt-1">82<span class="text-xs text-slate-400 font-normal">/100</span></div>
+          <span class="text-[10px] text-indigo-300">프로페셔널 어조 준수</span>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <span class="text-[11px] text-slate-400 font-medium">실무 어휘 활용</span>
+          <div id="scoreVocab" class="text-2xl font-black text-purple-400 mt-1">90<span class="text-xs text-slate-400 font-normal">/100</span></div>
+          <span class="text-[10px] text-purple-300">티로 회의 키워드 반영</span>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <span class="text-[11px] text-slate-400 font-medium">의견 전달력</span>
+          <div id="scoreClarity" class="text-2xl font-black text-emerald-400 mt-1">85<span class="text-xs text-slate-400 font-normal">/100</span></div>
+          <span class="text-[10px] text-emerald-300">명확한 논거 제시</span>
+        </div>
+      </div>
+
+      <!-- Correction & Better Native Phrasing -->
+      <div class="glass-card rounded-2xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            원어민 비즈니스 표현 교정 (Better Phrasing)
+          </h3>
+          <span class="text-xs text-slate-400">내가 쓴 표현 vs 추천 표현</span>
+        </div>
+
+        <div id="phrasingList" class="space-y-3">
+          <!-- Dynamically populated correction cards -->
+        </div>
+      </div>
+
+      <!-- Key Business Idioms & Expressions from this Meeting -->
+      <div class="glass-card rounded-2xl p-6 space-y-4">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          오늘 회의 핵심 비즈니스 영어 표현
+        </h3>
+
+        <div id="keyVocabGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <!-- Vocabulary cards -->
+        </div>
+      </div>
+
+      <!-- Follow-up Email Generator -->
+      <div class="glass-card rounded-2xl p-6 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            회의 팔로업 영문 이메일 초안
+          </h3>
+          <button onclick="copyFollowupEmail()" id="copyEmailBtn" class="text-xs px-3 py-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 font-medium transition flex items-center gap-1">
+            <span>복사하기</span>
+          </button>
+        </div>
+
+        <pre id="followupEmailContent" class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed select-all"></pre>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- API KEY CONFIG MODAL -->
+  <!-- ========================================== -->
+  <div id="apiKeyModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-6 space-y-4 border border-slate-700/80 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <span>⚙️ Gemini API 설정</span>
+        </h3>
+        <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+
+      <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+        <p>Google AI Studio에서 무료로 발급받은 Gemini API 키를 넣으면 실제 <strong>Gemini 2.0 / 1.5 모델</strong>과 실시간으로 연동됩니다.</p>
+        <p class="text-slate-400">키가 없어도 <strong>내장 무료 체험 모드</strong>(스마트 시뮬레이션 + Web Speech)로 바로 모든 기능을 무제한 테스트할 수 있습니다.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Google AI Studio API Key</label>
+        <input id="geminiApiKeyInput" type="password" placeholder="AIzaSy..." class="w-full text-xs rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-slate-200 outline-none focus:border-blue-500 font-mono transition">
+        <div class="flex items-center justify-between mt-1 text-[11px] text-slate-400">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 hover:underline">Google AI Studio에서 무료 키 받기 ↗</a>
+          <button onclick="clearApiKey()" class="text-red-400 hover:underline">키 삭제</button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200">취소</button>
+        <button onclick="saveApiKey()" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md transition">저장 및 적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // PRESETS
+    const SAMPLE_PRESETS = [
+      {
+        title: "기능 릴리즈 연기 및 보안 감사 협의",
+        role: "Lead Backend Developer",
+        persona: "alex",
+        text: `[Tiro 회의 요약]\n- 회의 일시: 2026.11.10\n- 참석자: Alex Chen (VP), 나 (Backend Lead), Kim (QA)\n- 안건: 3분기 신규 결제 연동 및 글로벌 런칭 일정 협의\n- 핵심 내용:\n  1. 해외 PG사 연동 중 간헐적 Timeout 발생 및 암호화 감사(Audit log) 요건 미달 확인\n  2. 보안 리스크 없이 안정적으로 가려면 런칭을 최소 2주 연기해야 함\n  3. Alex는 연기 시 마케팅 일정 차질을 우려하며, 부분 릴리즈(Canary) 또는 리스크 완화 방안을 요구함\n- 결정 필요 사항: 2주 연기 설득 또는 단계적 출시 타협안 도출`
+      },
+      {
+        title: "글로벌 SaaS 파트너십 API 제휴 미팅",
+        role: "Product Manager",
+        persona: "sarah",
+        text: `[Tiro 회의 요약]\n- 회의 일시: 2026.11.08\n- 참석자: Sarah Jenkins (Global Partner Lead), 나 (PM)\n- 안건: 양사 솔루션 간 양방향 웹훅 및 API 연동 범위 협의\n- 핵심 내용:\n  1. 상대측 플랫폼에 우리 AI 회의록 위젯을 임베드하는 방식 협의\n  2. API Rate Limit(호출 제한)과 사용자 데이터 개인정보(GDPR/PIPA) 처리 기준 쟁점\n  3. Sarah는 초기 베타 파트너사 10곳을 대상으로 12월 파일럿을 희망함\n- 결정 필요 사항: SLA 보장 범위 및 1차 API 스펙 범위 픽스`
+      },
+      {
+        title: "Q3 실적 리뷰 및 AI 도입 우선순위 회의",
+        role: "Business Operations Lead",
+        persona: "david",
+        text: `[Tiro 회의 요약]\n- 회의 일시: 2026.11.05\n- 참석자: David Miller (Enterprise Buyer), 나 (BizOps)\n- 안건: 사내 엔터프라이즈 AI 도구 라이선스 갱신 및 ROI 검토\n- 핵심 내용:\n  1. 현재 라이선스 비용 대비 실질적인 업무 시간 단축 지표 요구\n  2. Tiro 회의록 자동화 도입 이후 회의록 작성 시간 75% 감소한 데이터 공유\n  3. David는 전사 확대 전에 온프레미스/VPC 격리 옵션 및 보안 감사 증적 요구\n- 결정 필요 사항: 추가 보안 요구사항 반영 견적 및 파일럿 연장 합의`
+      }
+    ];
+
+    // PERSONAS CONFIG
+    const PERSONAS = {
+      alex: {
+        name: "Alex Chen",
+        role: "미국 본사 Engineering VP",
+        initials: "AC",
+        bg: "from-blue-600 to-indigo-600",
+        voicePitch: 0.95,
+        voiceRate: 1.05,
+        firstMessage: "Thanks for jumping on the call. Look, I saw the slack thread about pushing back the release date. Marketing already set up the announcement. What's the blocker here?"
+      },
+      sarah: {
+        name: "Sarah Jenkins",
+        role: "글로벌 Product Lead",
+        initials: "SJ",
+        bg: "from-emerald-600 to-teal-600",
+        voicePitch: 1.1,
+        voiceRate: 1.0,
+        firstMessage: "Hi there! Glad we could connect. I went through the initial API spec you sent over. Overall looks promising, but I do have a few concerns regarding the GDPR compliance and rate limits. Shall we walk through them?"
+      },
+      david: {
+        name: "David Miller",
+        role: "해외 바이어 / Enterprise Director",
+        initials: "DM",
+        bg: "from-amber-600 to-orange-600",
+        voicePitch: 0.9,
+        voiceRate: 0.95,
+        firstMessage: "Good morning. We reviewed the Q3 efficiency numbers for the AI tooling, and while the time-saving metric is impressive, our compliance committee is raising flags about VPC isolation. Where do we stand on that?"
+      }
+    };
+
+    // STATE
+    let currentStep = 1;
+    let selectedPersonaKey = 'alex';
+    let isMeetingActive = false;
+    let isListening = false;
+    let isAiSpeaking = false;
+    let recognition = null;
+    let meetingStartTime = null;
+    let meetingTimerInterval = null;
+    let chatHistory = [];
+    let orbAnimationId = null;
+    let audioContext = null;
+    let analyser = null;
+    let audioData = new Uint8Array(64);
+    let geminiApiKey = localStorage.getItem('TIROTALK_GEMINI_API_KEY') || '';
+
+    // INIT ON LOAD
+    window.addEventListener('DOMContentLoaded', () => {
+      updateApiKeyStatus();
+      loadSamplePreset(0);
+      setupSpeechRecognition();
+      setupVisualizer();
+
+      const input = document.getElementById('meetingNotesInput');
+      input.addEventListener('input', () => {
+        document.getElementById('charCount').textContent = `${input.value.length}자`;
+      });
+
+      document.querySelectorAll('input[name="persona"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          selectedPersonaKey = e.target.value;
+          document.querySelectorAll('.persona-option').forEach(el => {
+            el.classList.remove('border-blue-500/50', 'bg-blue-500/10');
+            el.classList.add('border-slate-700/60', 'bg-slate-800/40');
+          });
+          e.target.closest('.persona-option').classList.remove('border-slate-700/60', 'bg-slate-800/40');
+          e.target.closest('.persona-option').classList.add('border-blue-500/50', 'bg-blue-500/10');
+        });
+      });
+    });
+
+    // STEP NAVIGATION
+    function goToStep(step) {
+      if (step === 2 && !isMeetingActive) {
+        startMeetingSession();
+        return;
+      }
+      currentStep = step;
+      document.getElementById('step1-container').classList.toggle('hidden', step !== 1);
+      document.getElementById('step2-container').classList.toggle('hidden', step !== 2);
+      document.getElementById('step3-container').classList.toggle('hidden', step !== 3);
+
+      // Nav indicator update
+      ['1', '2', '3'].forEach(num => {
+        const btn = document.getElementById(`nav-step${num}-btn`);
+        if (num === String(step)) {
+          btn.className = 'px-3 py-1 rounded-full text-blue-400 bg-blue-500/10 transition font-bold';
+        } else {
+          btn.className = 'px-3 py-1 rounded-full text-slate-400 hover:text-slate-200 transition';
+        }
+      });
+    }
+
+    // PRESET LOADER
+    function loadSamplePreset(idx) {
+      const preset = SAMPLE_PRESETS[idx];
+      document.getElementById('meetingNotesInput').value = preset.text;
+      document.getElementById('charCount').textContent = `${preset.text.length}자`;
+      document.getElementById('myRoleInput').value = preset.role;
+      
+      const radio = document.querySelector(`input[name="persona"][value="${preset.persona}"]`);
+      if (radio) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change'));
+      }
+    }
+
+    // START MEETING
+    function startMeetingSession() {
+      const notes = document.getElementById('meetingNotesInput').value.trim();
+      if (!notes) {
+        alert('회의록 본문을 입력하거나 상단의 샘플 회의록을 선택해주세요!');
+        return;
+      }
+
+      isMeetingActive = true;
+      chatHistory = [];
+      document.getElementById('chatLogList').innerHTML = '';
+      document.getElementById('chatLogCount').textContent = '0';
+      
+      const persona = PERSONAS[selectedPersonaKey];
+      document.getElementById('activePersonaName').textContent = persona.name;
+      document.getElementById('activePersonaRole').textContent = persona.role;
+      document.getElementById('activePersonaAvatar').textContent = persona.initials;
+      document.getElementById('activePersonaAvatar').className = `w-12 h-12 rounded-full bg-gradient-to-tr ${persona.bg} flex items-center justify-center text-white font-bold text-lg shadow-md`;
+      
+      const lines = notes.split('\n').filter(l => l.trim().length > 0);
+      const topic = lines[0] ? lines[0].replace(/^\[.*?\]/, '').trim() : '회의 안건 논의';
+      document.getElementById('activeMeetingTopic').textContent = topic;
+
+      goToStep(2);
+      startTimer();
+
+      // Trigger AI's First Opening Statement
+      setTimeout(() => {
+        aiSpeak(persona.firstMessage);
+      }, 700);
+    }
+
+    // TIMER
+    function startTimer() {
+      meetingStartTime = Date.now();
+      clearInterval(meetingTimerInterval);
+      meetingTimerInterval = setInterval(() => {
+        const diff = Math.floor((Date.now() - meetingStartTime) / 1000);
+        const m = String(Math.floor(diff / 60)).padStart(2, '0');
+        const s = String(diff % 60).padStart(2, '0');
+        document.getElementById('meetingTimer').textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    // SPEECH RECOGNITION (STT)
+    function setupSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        console.warn('SpeechRecognition is not supported in this browser.');
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US'; // English meeting practice
+
+      recognition.onstart = () => {
+        isListening = true;
+        updateMicUi(true);
+        setAiState('Listening...', 'text-emerald-400', 'border-emerald-500/20');
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+          document.getElementById('liveTranscriptText').textContent = `You: "${currentText}"`;
+          document.getElementById('liveTranscriptText').classList.remove('italic', 'text-slate-400');
+          document.getElementById('liveTranscriptText').classList.add('text-white');
+        }
+
+        if (finalTranscript.trim().length > 1) {
+          handleUserUtterance(finalTranscript.trim());
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크를 허용해주세요.');
+        }
+        isListening = false;
+        updateMicUi(false);
+      };
+
+      recognition.onend = () => {
+        if (isMeetingActive && isListening) {
+          // Restart if still intended to be listening
+          try { recognition.start(); } catch(e){}
+        } else {
+          isListening = false;
+          updateMicUi(false);
+        }
+      };
+    }
+
+    // TOGGLE MIC
+    function toggleMic() {
+      if (!recognition) {
+        alert('이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 등 모던 브라우저를 권장합니다.');
+        return;
+      }
+      if (isListening) {
+        isListening = false;
+        recognition.stop();
+        updateMicUi(false);
+        setAiState('Mic Muted', 'text-slate-400', 'border-slate-700');
+      } else {
+        if (isAiSpeaking) {
+          window.speechSynthesis.cancel();
+          isAiSpeaking = false;
+        }
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+    }
+
+    function updateMicUi(active) {
+      const btn = document.getElementById('micToggleButton');
+      if (active) {
+        btn.className = 'w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shadow-xl shadow-emerald-500/40 transition transform active:scale-95 border-2 border-white animate-pulse';
+      } else {
+        btn.className = 'w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-xl shadow-blue-600/40 transition transform active:scale-95 border-2 border-white/20';
+      }
+    }
+
+    // USER UTTERANCE HANDLER
+    async function handleUserUtterance(text) {
+      appendChatMessage('user', text);
+      setAiState('Thinking...', 'text-amber-300', 'border-amber-500/20');
+
+      // Stop recognition briefly while AI responds
+      if (recognition && isListening) {
+        try { recognition.stop(); } catch(e){}
+      }
+
+      // Generate AI Response
+      let reply = '';
+      if (geminiApiKey) {
+        reply = await callGeminiApi(text);
+      } else {
+        reply = generateSmartSimulatedReply(text);
+      }
+
+      aiSpeak(reply);
+    }
+
+    // AI SPEECH OUTPUT (TTS)
+    function aiSpeak(text) {
+      isAiSpeaking = true;
+      appendChatMessage('ai', text);
+      document.getElementById('liveTranscriptText').textContent = `${PERSONAS[selectedPersonaKey].name}: "${text}"`;
+      document.getElementById('liveTranscriptText').classList.add('text-indigo-200');
+
+      setAiState('Speaking...', 'text-indigo-300', 'border-indigo-500/30');
+
+      const shouldPlayVoice = document.getElementById('toggleVoicePlayback').checked;
+      if (!shouldPlayVoice || !window.speechSynthesis) {
+        setTimeout(() => {
+          isAiSpeaking = false;
+          setAiState('Listening...', 'text-emerald-400', 'border-emerald-500/20');
+          if (isListening && recognition) {
+            try { recognition.start(); } catch(e){}
+          }
+        }, 2000);
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      const persona = PERSONAS[selectedPersonaKey];
+      utterance.pitch = persona.voicePitch;
+      utterance.rate = persona.voiceRate;
+
+      // Select natural US voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const usVoice = voices.find(v => v.lang === 'en-US' && (v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('David')));
+      if (usVoice) utterance.voice = usVoice;
+
+      utterance.onend = () => {
+        isAiSpeaking = false;
+        setAiState('Your turn to speak', 'text-blue-300', 'border-blue-500/30');
+        if (isListening && recognition) {
+          try { recognition.start(); } catch(e){}
+        }
+      };
+
+      utterance.onerror = () => {
+        isAiSpeaking = false;
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // INTERRUPT / BARGE-IN
+    function interruptAi() {
+      if (isAiSpeaking) {
+        window.speechSynthesis.cancel();
+        isAiSpeaking = false;
+        setAiState('Interrupted', 'text-red-400', 'border-red-500/20');
+        setTimeout(() => {
+          toggleMic();
+        }, 300);
+      }
+    }
+
+    // SMART SIMULATED REPLIES (when no API key is provided)
+    function generateSmartSimulatedReply(userText) {
+      const lower = userText.toLowerCase();
+      const persona = selectedPersonaKey;
+
+      if (persona === 'alex') {
+        if (lower.includes('delay') || lower.includes('postpone') || lower.includes('two weeks') || lower.includes('push')) {
+          return "I understand the stability concerns, but pushing by two whole weeks kills our launch momentum. Can we do a canary release with 10% traffic first while you patch the timeout?";
+        } else if (lower.includes('canary') || lower.includes('traffic') || lower.includes('partial') || lower.includes('agree')) {
+          return "That sounds like a fair compromise. If we cap exposure at 10% and keep QA monitoring the logs in real time, I can sell this to executive leadership. What's the rollback trigger?";
+        } else if (lower.includes('security') || lower.includes('audit') || lower.includes('risk')) {
+          return "Fair point. A security audit failure is definitely worse than a two-day delay. But give me a strict timeline—when will the remediation patch be completed?";
+        } else {
+          return "Got it. But from an engineering VP perspective, I need concrete deliverables. How does this align with our sprint capacity for next week?";
+        }
+      } else if (persona === 'sarah') {
+        if (lower.includes('gdpr') || lower.includes('privacy') || lower.includes('compliance')) {
+          return "Glad you brought up GDPR. Our enterprise customers are very strict on data residency. Can your webhook ensure payload encryption at rest?";
+        } else if (lower.includes('rate limit') || lower.includes('quota') || lower.includes('api')) {
+          return "1,000 requests per minute should be sufficient for the pilot phase. What happens if our mutual clients exceed that threshold during peak hours?";
+        } else {
+          return "That makes sense from a product standpoint. When can we schedule the joint staging integration test with our developers?";
+        }
+      } else {
+        if (lower.includes('vpc') || lower.includes('isolate') || lower.includes('on-premise')) {
+          return "If VPC isolation requires an enterprise add-on fee, we need that reflected in the revised proposal. Can you waive that for the annual contract?";
+        } else {
+          return "Understood. Our legal team will review this by Thursday. Can you send over the updated SOC2 compliance sheet before then?";
+        }
+      }
+    }
+
+    // REAL GEMINI API CALL
+    async function callGeminiApi(userText) {
+      const notes = document.getElementById('meetingNotesInput').value;
+      const persona = PERSONAS[selectedPersonaKey];
+      const myRole = document.getElementById('myRoleInput').value;
+      const difficulty = document.getElementById('meetingDifficulty').value;
+
+      const prompt = `You are roleplaying as ${persona.name}, a ${persona.role} in a live business meeting.
+Your personality is direct, professional, and authentic to native English business meetings.
+Difficulty: ${difficulty}.
+The user is participating as: ${myRole}.
+
+Here is the meeting background / Tiro notes:
+\"\"\"
+${notes}
+\"\"\"
+
+Conversation history so far:
+${chatHistory.map(c => `${c.role === 'user' ? 'User' : persona.name}: ${c.text}`).join('\n')}
+
+The user just spoke to you:
+\"${userText}\"
+
+Respond in character. Keep your response spoken, concise (1 to 3 sentences maximum), conversational, and focused on driving the meeting decision forward. Do not include markdown or stage directions, only spoken dialogue.`;
+
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+        const data = await res.json();
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        return reply ? reply.trim() : "I see your point. Let's make sure we have this documented before wrapping up.";
+      } catch (err) {
+        console.error('Gemini API Error:', err);
+        return generateSmartSimulatedReply(userText);
+      }
+    }
+
+    // HINT / CHEAT SHEET
+    function requestHint() {
+      const hintCard = document.getElementById('hintCard');
+      const container = document.getElementById('hintSuggestions');
+      hintCard.classList.remove('hidden');
+
+      const hints = [
+        "\"To mitigate this risk, we recommend running a canary release with 10% traffic first.\"",
+        "\"From an engineering standpoint, security compliance is non-negotiable to prevent data breaches.\"",
+        "\"I propose a two-phase rollout so we don't disrupt the marketing schedule.\""
+      ];
+
+      container.innerHTML = hints.map(h => `
+        <div class="p-2 rounded bg-slate-900/80 border border-slate-700/60 cursor-pointer hover:border-amber-400 transition" onclick="useHint('${h.replace(/"/g, '&quot;')}')">
+          <span class="text-amber-200">💬 ${h}</span>
+        </div>
+      `).join('');
+    }
+
+    function closeHint() {
+      document.getElementById('hintCard').classList.add('hidden');
+    }
+
+    function useHint(text) {
+      closeHint();
+      handleUserUtterance(text.replace(/"/g, ''));
+    }
+
+    // CHAT LOG UTILS
+    function appendChatMessage(role, text) {
+      chatHistory.push({ role, text, time: new Date() });
+      document.getElementById('chatLogCount').textContent = chatHistory.length;
+
+      const list = document.getElementById('chatLogList');
+      const item = document.createElement('div');
+      item.className = `flex flex-col ${role === 'user' ? 'items-end' : 'items-start'}`;
+      
+      const isUser = role === 'user';
+      item.innerHTML = `
+        <div class="max-w-[85%] rounded-2xl px-3.5 py-2 ${isUser ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-slate-800 text-slate-200 border border-slate-700/60 rounded-bl-sm'}">
+          <span class="text-[10px] font-bold block mb-0.5 opacity-70">${isUser ? 'You' : PERSONAS[selectedPersonaKey].name}</span>
+          <p>${text}</p>
+        </div>
+      `;
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function toggleLogPanel() {
+      const panel = document.getElementById('chatLogPanel');
+      const icon = document.getElementById('logToggleIcon');
+      const isHidden = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !isHidden);
+      icon.textContent = isHidden ? '접기 ▲' : '펼치기 ▼';
+    }
+
+    // STATE INDICATOR
+    function setAiState(label, textColorClass, borderColorClass) {
+      const el = document.getElementById('aiStateLabel');
+      el.textContent = label;
+      el.className = `text-xs font-bold uppercase tracking-wider ${textColorClass} mt-2 bg-slate-900/80 px-3 py-1 rounded-full border ${borderColorClass} backdrop-blur-sm transition-all`;
+    }
+
+    // FINISH MEETING & GENERATE DEBRIEF
+    function finishMeeting() {
+      clearInterval(meetingTimerInterval);
+      if (recognition) {
+        try { recognition.stop(); } catch(e){}
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      isMeetingActive = false;
+      isListening = false;
+      isAiSpeaking = false;
+
+      // Render Step 3
+      renderDebriefReport();
+      goToStep(3);
+    }
+
+    function restartMeeting() {
+      goToStep(1);
+    }
+
+    // RENDER DEBRIEF REPORT
+    function renderDebriefReport() {
+      const userUtterances = chatHistory.filter(c => c.role === 'user').map(c => c.text);
+      const timerText = document.getElementById('meetingTimer').textContent;
+      document.getElementById('debriefSubtitle').textContent = `총 대화 ${chatHistory.length}턴 | 회의 시간: ${timerText} | 파트너: ${PERSONAS[selectedPersonaKey].name}`;
+
+      // Dynamic Better Phrasing Cards
+      const phrasingList = document.getElementById('phrasingList');
+      const sampleCorrections = [
+        {
+          original: userUtterances[0] || "We need push back release because server error.",
+          better: "We need to postpone the rollout due to intermittent server timeout issues.",
+          reason: "'push back release' 앞에 관사를 넣고, 'server error' 대신 구체적 기술 용어인 'intermittent timeout issues'를 쓰면 훨씬 프로페셔널합니다."
+        },
+        {
+          original: userUtterances[1] || "If we do canary release, it is more safe for us.",
+          better: "Adopting a canary release strategy will significantly mitigate deployment risks.",
+          reason: "'more safe' 대신 비즈니스 리스크 관리 용어인 'significantly mitigate deployment risks'를 사용하는 것이 고위직 매니저 대상 설득에 훨씬 효과적입니다."
+        },
+        {
+          original: userUtterances[2] || "Alex, I agree with your opinion, but marketing team will be angry.",
+          better: "I see your point, Alex; however, we'll need to proactively manage marketing's expectations.",
+          reason: "'will be angry' 같은 감정적 표현보다는 'proactively manage expectations'라는 세련된 비즈니스 완곡 어법을 권장합니다."
+        }
+      ];
+
+      phrasingList.innerHTML = sampleCorrections.map(c => `
+        <div class="p-4 rounded-xl glass-card-subtle border border-slate-800 space-y-2">
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 font-bold">내가 한 말</span>
+            <p class="text-xs text-slate-300 italic font-mono flex-1">"${c.original}"</p>
+          </div>
+          <div class="flex items-start gap-2 pt-1 border-t border-slate-800/80">
+            <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">네이티브 추천</span>
+            <p class="text-xs text-emerald-300 font-medium flex-1">"${c.better}"</p>
+          </div>
+          <p class="text-[11px] text-slate-400 pl-2 border-l-2 border-blue-500/40 mt-1">${c.reason}</p>
+        </div>
+      `).join('');
+
+      // Key Vocab Grid
+      const keyVocabGrid = document.getElementById('keyVocabGrid');
+      const vocabs = [
+        { word: "Mitigate risk", meaning: "리스크를 완화/경감하다", ex: "A phased rollout will help mitigate operational risks." },
+        { word: "Canary release", meaning: "일부 트래픽 대상 점진적 배포", ex: "We can route 5% of traffic via canary release." },
+        { word: "Proactively manage", meaning: "선제적으로 조율/관리하다", ex: "Let's proactively manage stakeholder expectations." },
+        { word: "Non-negotiable", meaning: "타협 불가능한 (필수적인)", ex: "Security audit compliance is non-negotiable." }
+      ];
+
+      keyVocabGrid.innerHTML = vocabs.map(v => `
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-blue-400 text-xs">${v.word}</span>
+            <span class="text-[10px] text-slate-400">${v.meaning}</span>
+          </div>
+          <p class="text-[11px] text-slate-300 italic">"${v.ex}"</p>
+        </div>
+      `).join('');
+
+      // Follow-up Email Template
+      const persona = PERSONAS[selectedPersonaKey];
+      const email = `Subject: [Follow-up] Recap & Next Steps: ${document.getElementById('activeMeetingTopic').textContent}
+
+Hi ${persona.name.split(' ')[0]},
+
+Thank you for your time today regarding our launch schedule and risk management strategy.
+
+Key Takeaways & Action Items:
+1. Rollout Strategy: We aligned on adopting a canary release (10% traffic) to safeguard against backend timeout issues while preserving market momentum.
+2. Timeline: Remediation patches for the audit log compliance will be prioritized and verified by QA by next Tuesday.
+3. Next Sync: A quick 15-minute check-in is scheduled for Friday to confirm canary metric stability.
+
+Please let me know if I missed any key points. Looking forward to our deployment sync.
+
+Best regards,
+${document.getElementById('myRoleInput').value}`;
+
+      document.getElementById('followupEmailContent').textContent = email;
+    }
+
+    function copyFollowupEmail() {
+      const text = document.getElementById('followupEmailContent').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyEmailBtn');
+        btn.innerHTML = '<span>✓ 복사 완료!</span>';
+        setTimeout(() => {
+          btn.innerHTML = '<span>복사하기</span>';
+        }, 2000);
+      });
+    }
+
+    // CANVAS ORB VISUALIZER
+    function setupVisualizer() {
+      const canvas = document.getElementById('orbCanvas');
+      const ctx = canvas.getContext('2d');
+      let angle = 0;
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        let baseRadius = 55;
+        let intensity = 1;
+
+        if (isAiSpeaking) {
+          intensity = 1.35 + Math.sin(angle * 4) * 0.2;
+        } else if (isListening) {
+          intensity = 1.15 + Math.cos(angle * 2) * 0.1;
+        }
+
+        angle += 0.04;
+
+        // Outer glow circle
+        const gradient = ctx.createRadialGradient(centerX, centerY, baseRadius * 0.5, centerX, centerY, baseRadius * intensity * 1.5);
+        if (isAiSpeaking) {
+          gradient.addColorStop(0, 'rgba(129, 140, 248, 0.9)');
+          gradient.addColorStop(0.5, 'rgba(168, 85, 247, 0.5)');
+          gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        } else if (isListening) {
+          gradient.addColorStop(0, 'rgba(52, 211, 153, 0.9)');
+          gradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.5)');
+          gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        } else {
+          gradient.addColorStop(0, 'rgba(59, 130, 246, 0.7)');
+          gradient.addColorStop(0.6, 'rgba(99, 102, 241, 0.3)');
+          gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
+        }
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, baseRadius * intensity * 1.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner dynamic waves
+        ctx.strokeStyle = isAiSpeaking ? 'rgba(255, 255, 255, 0.8)' : 'rgba(199, 210, 254, 0.6)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let i = 0; i <= 360; i += 5) {
+          const rad = (i * Math.PI) / 180;
+          const wave = Math.sin(rad * 6 + angle * 3) * (isAiSpeaking ? 8 : 4);
+          const r = baseRadius * intensity + wave;
+          const x = centerX + Math.cos(rad) * r;
+          const y = centerY + Math.sin(rad) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        orbAnimationId = requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    // API KEY MODAL
+    function openApiKeyModal() {
+      document.getElementById('geminiApiKeyInput').value = geminiApiKey;
+      document.getElementById('apiKeyModal').classList.remove('hidden');
+    }
+
+    function closeApiKeyModal() {
+      document.getElementById('apiKeyModal').classList.add('hidden');
+    }
+
+    function saveApiKey() {
+      const val = document.getElementById('geminiApiKeyInput').value.trim();
+      geminiApiKey = val;
+      localStorage.setItem('TIROTALK_GEMINI_API_KEY', val);
+      updateApiKeyStatus();
+      closeApiKeyModal();
+    }
+
+    function clearApiKey() {
+      geminiApiKey = '';
+      localStorage.removeItem('TIROTALK_GEMINI_API_KEY');
+      document.getElementById('geminiApiKeyInput').value = '';
+      updateApiKeyStatus();
+      closeApiKeyModal();
+    }
+
+    function updateApiKeyStatus() {
+      const dot = document.getElementById('apiKeyStatusDot');
+      const text = document.getElementById('apiKeyStatusText');
+      if (geminiApiKey) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        text.textContent = 'Gemini 2.0 연동 중';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        text.textContent = '무료 체험 모드';
+      }
+    }
+  </script>
+</body>
+</html>
