@@ -318,6 +318,16 @@
             </svg>
           </button>
 
+          <!-- Done Speaking / Send Now Button -->
+          <button id="sendNowButton" onclick="sendNow()" class="p-3.5 rounded-full glass-card hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition shadow-lg group relative" title="말 다했음! 바로 전송하기">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+            <span class="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-emerald-300 text-[10px] px-2 py-0.5 rounded shadow pointer-events-none opacity-0 group-hover:opacity-100 transition whitespace-nowrap border border-emerald-500/30">
+              ✓ 말 끝남 (즉시 전송)
+            </span>
+          </button>
+
           <!-- Interrupt / Barge-in Button -->
           <button onclick="interruptAi()" class="p-3.5 rounded-full glass-card hover:bg-slate-800 text-slate-300 border border-slate-700 transition shadow-lg group relative" title="AI 발언 끊고 끼어들기">
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -327,6 +337,19 @@
               ✋ 말 끊고 끼어들기
             </span>
           </button>
+        </div>
+
+        <!-- Pause threshold adjustment setting -->
+        <div class="mt-4 flex items-center justify-center gap-3 text-xs text-slate-400 z-10">
+          <span class="flex items-center gap-1.5">
+            ⏱️ 말 멈춤 대기 시간:
+          </span>
+          <select id="silenceTimeoutSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 outline-none focus:border-blue-500">
+            <option value="1500">1.5초 (빠른 대화)</option>
+            <option value="2500" selected>2.5초 (생각하며 말하기 권장)</option>
+            <option value="4000">4.0초 (여유 있게 길게 말하기)</option>
+            <option value="999999">수동 전송 (버튼 누를 때까지 대기)</option>
+          </select>
         </div>
 
         <!-- Hint Popup Card -->
@@ -668,6 +691,9 @@
       }, 1000);
     }
 
+    let accumulatedUserText = '';
+    let speechSilenceTimer = null;
+
     // SPEECH RECOGNITION (STT)
     function setupSpeechRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -688,25 +714,40 @@
 
       recognition.onresult = (event) => {
         let interimTranscript = '';
-        let finalTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const piece = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+            accumulatedUserText += (accumulatedUserText ? ' ' : '') + piece.trim();
           } else {
-            interimTranscript += event.results[i][0].transcript;
+            interimTranscript += piece;
           }
         }
 
-        const currentText = finalTranscript || interimTranscript;
-        if (currentText) {
-          document.getElementById('liveTranscriptText').textContent = `You: "${currentText}"`;
+        const previewText = (accumulatedUserText + ' ' + interimTranscript).trim();
+        if (previewText) {
+          document.getElementById('liveTranscriptText').textContent = `You: "${previewText}"`;
           document.getElementById('liveTranscriptText').classList.remove('italic', 'text-slate-400');
           document.getElementById('liveTranscriptText').classList.add('text-white');
         }
 
-        if (finalTranscript.trim().length > 1) {
-          handleUserUtterance(finalTranscript.trim());
+        // Reset previous silence countdown
+        if (speechSilenceTimer) {
+          clearTimeout(speechSilenceTimer);
+        }
+
+        const timeoutMs = parseInt(document.getElementById('silenceTimeoutSelect')?.value || '2500', 10);
+        
+        // If not in manual mode, wait until the user stops speaking for timeoutMs
+        if (timeoutMs < 900000 && previewText.length > 2) {
+          setAiState('Listening (Paused)...', 'text-emerald-300', 'border-emerald-500/40');
+          speechSilenceTimer = setTimeout(() => {
+            const finalToSend = accumulatedUserText || previewText;
+            if (finalToSend.trim().length > 1) {
+              accumulatedUserText = '';
+              handleUserUtterance(finalToSend.trim());
+            }
+          }, timeoutMs);
         }
       };
 
@@ -720,14 +761,26 @@
       };
 
       recognition.onend = () => {
-        if (isMeetingActive && isListening) {
-          // Restart if still intended to be listening
+        if (isMeetingActive && isListening && !isAiSpeaking) {
           try { recognition.start(); } catch(e){}
         } else {
           isListening = false;
           updateMicUi(false);
         }
       };
+    }
+
+    // MANUAL SEND
+    function sendNow() {
+      if (speechSilenceTimer) {
+        clearTimeout(speechSilenceTimer);
+      }
+      const previewText = document.getElementById('liveTranscriptText').textContent.replace(/^You:\s*"/, '').replace(/"$/, '').trim();
+      const finalToSend = accumulatedUserText || previewText;
+      if (finalToSend && !finalToSend.includes('마이크 버튼을 누르고')) {
+        accumulatedUserText = '';
+        handleUserUtterance(finalToSend.trim());
+      }
     }
 
     // TOGGLE MIC
